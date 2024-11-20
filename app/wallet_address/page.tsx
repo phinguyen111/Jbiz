@@ -405,8 +405,39 @@ const fetchTransactionData = async (address: string, updateSearched = false, par
   setError(null)
 
   try {
-    const response = await fetch(`https://nhiapi.vercel.app/api/transactions?address=${address}`)
-    const data = await response.json()
+    // Validate address before making the request
+    if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      throw new Error('Invalid Ethereum address format')
+    }
+
+    // Add error handling and retry logic
+    const fetchWithRetry = async (retries = 3) => {
+      for (let i = 0; i < retries; i++) {
+        try {
+          const response = await fetch(`https://nhiapi.vercel.app/api/transactions?address=${address}`, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'Origin': window.location.origin
+            },
+            mode: 'cors'
+          })
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`)
+          }
+
+          const data = await response.json()
+          return data
+        } catch (error) {
+          if (i === retries - 1) throw error
+          // Wait before retrying with exponential backoff
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)))
+        }
+      }
+    }
+
+    const data = await fetchWithRetry()
 
     if (data && data.transactions && Array.isArray(data.transactions)) {
       if (processedAddresses.has(address.toLowerCase())) {
@@ -432,19 +463,18 @@ const fetchTransactionData = async (address: string, updateSearched = false, par
         addedToNodes.add(address.toLowerCase())
       }
 
-      // Process transactions with the correct data structure
+      // Process transactions with validation
       data.transactions.forEach((tx: any) => {
         if (!tx.from || !tx.to || !tx.value || !tx.hash) {
-          console.error("Invalid transaction data:", tx);
-          return; // Bỏ qua giao dịch nếu dữ liệu không hợp lệ
+          console.warn("Invalid transaction data:", tx)
+          return
         }
-        // Extract the correct fields from the transaction
+
         const txFrom = tx.from?.toLowerCase() || ''
         const txTo = tx.to?.toLowerCase() || ''
-        const value = tx.value ? parseFloat(tx.value) / 1e18 : 0 // Convert from wei to ETH
+        const value = tx.value ? parseFloat(tx.value) / 1e18 : 0
         const edgeId = `${txFrom}-${txTo}`
 
-        // Skip invalid transactions
         if (!txFrom || !txTo) return
 
         if (!addedFromNodes.has(txFrom) && txFrom !== txTo) {
@@ -525,16 +555,21 @@ const fetchTransactionData = async (address: string, updateSearched = false, par
           style: { stroke: '#60a5fa', strokeWidth: 3}
         })
       })
+
       setProcessedAddresses(prev => new Set([...prev, address.toLowerCase()]))
       setNodes(prevNodes => [...prevNodes, ...newFromNodes, ...newToNodes])
       setEdges(prevEdges => [...prevEdges, ...newEdges])
 
       console.log(`Processed ${data.transactions.length} transactions for address: ${address}`)
     } else {
-      setError("Failed to fetch transaction data or invalid data structure")
+      throw new Error("Invalid data structure received from API")
     }
   } catch (err) {
     console.error('Error fetching data:', err)
+    setError(err instanceof Error ? err.message : 'An unexpected error occurred')
+    // Clear any partial data that might have been set
+    setNodes([])
+    setEdges([])
   } finally {
     setIsLoading(false)
   }
