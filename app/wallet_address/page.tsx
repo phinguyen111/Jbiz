@@ -405,7 +405,7 @@ const fetchTransactionData = async (address: string, updateSearched = false, par
   setError(null)
 
   try {
-    const response = await fetch(`https://nhiapi-kp7c.vercel.app/api/transactions?address=${address}`)
+    const response = await fetch(`https://nhiapi.vercel.app/api/transactions?address=${address}`)
     const data = await response.json()
 
     if (data && data.transactions && Array.isArray(data.transactions)) {
