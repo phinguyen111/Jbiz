@@ -603,8 +603,8 @@ const fetchTransactionData = async (address: string, updateSearched = false, par
     setProcessedAddresses(prev => new Set([...prev, formattedAddress.toLowerCase()]))
     setNodes(prevNodes => [...prevNodes, ...newFromNodes, ...newToNodes])
     setEdges(prevEdges => [...prevEdges, ...newEdges])
-
-    console.log(`Successfully processed ${data.transactions.length} transactions for address: ${formattedAddress}`)
+    console.log(`Processed ${data.transactions.length} transactions for address: ${address}`)
+    
   } catch (err) {
     console.error('Error fetching or processing data:', err)
     setError(err instanceof Error ? err.message : 'An unexpected error occurred')
@@ -620,8 +620,7 @@ const onNodeDoubleClick = useCallback((event: React.MouseEvent, node: Node) => {
     if (!processedAddresses.has(node.id)) {
       fetchTransactionData(node.id, false, node.position)
     }
-  }, [processedAddresses])
-
+  }, [processedAddresses, fetchTransactionData])
 
 const onEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
   const edgeTransactions = edge.data?.transactions || []
