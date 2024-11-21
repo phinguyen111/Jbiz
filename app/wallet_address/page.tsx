@@ -424,7 +424,7 @@ const fetchTransactionData = async (address: string, updateSearched = false, par
     const fetchWithRetry = async (retries = 3) => {
       for (let i = 0; i < retries; i++) {
         try {
-          const response = await fetch(`https://nhiapi.vercel.app/api/transactions?address=${formattedAddress}`, {
+          const response = await fetch(`https://nhiapi.vercel.app/api/transactions?address=${address}`, {
             method: 'GET',
             headers: {
               'Accept': 'application/json',
