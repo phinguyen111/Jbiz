@@ -273,7 +273,7 @@ const ETHERSCAN_API_KEY = "RQ1E2Y5VTM4EKCNZTDHD58UCIXMPD34N1J";
     }
   }, [searchParams]);
 
-const fetchTokenHoldings = async (address: string, token: string) => {
+  const fetchTokenHoldings = async (address: string, token: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -295,152 +295,108 @@ const fetchTokenHoldings = async (address: string, token: string) => {
     }
 };
 const fetchMultichainData = async () => {
-  setLoading(true);
-  setError(null);
-  try {
-    const response = await axios.get(https://deep-index.moralis.io/api/v2/${walletAddress}/erc20/${tokenAddress}, {
-      headers: {
-      'X-API-Key': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjdlYWZlZGFlLWQxYzktNGZiNS05OWJkLTRiNmU0ODMzMGM3YiIsIm9yZ0lkIjoiNDE2NTM4IiwidXNlcklkIjoiNDI4MTQ4IiwidHlwZSI6IlBST0pFQ1QiLCJ0eXBlSWQiOiI5MWE1M2YyZS00OGYxLTRiOTEtOTAyYy1kMTM3ZGFiOWQ0YTYiLCJpYXQiOjE3MzE4NzMzMDUsImV4cCI6NDg4NzYzMzMwNX0.eO0Dk38ZaLy-HgaUAYU-tou4ObTfdWQU9JBLMTQ_Dmo',
-    },
-      });
-  setTokenHoldings(prev => [...prev, ...response.data]); // Combine with existing token holdings
-} catch (err) {
-  console.error('Error fetching multichain data:', err);
-  setError('Error fetching data');
-} finally {
-  setLoading(false);
-}
+    setLoading(true);
+    setError(null);
+    try {
+        const response = await axios.get(`https://deep-index.moralis.io/api/v2/${walletAddress}/erc20/${tokenAddress}`, {
+            headers: {
+                'X-API-Key': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjdlYWZlZGFlLWQxYzktNGZiNS05OWJkLTRiNmU0ODMzMGM3YiIsIm9yZ0lkIjoiNDE2NTM4IiwidXNlcklkIjoiNDI4MTQ4IiwidHlwZSI6IlBST0pFQ1QiLCJ0eXBlSWQiOiI5MWE1M2YyZS00OGYxLTRiOTEtOTAyYy1kMTM3ZGFiOWQ0YTYiLCJpYXQiOjE3MzE4NzMzMDUsImV4cCI6NDg4NzYzMzMwNX0.eO0Dk38ZaLy-HgaUAYU-tou4ObTfdWQU9JBLMTQ_Dmo', 
+            },
+        });
+        setTokenHoldings(prev => [...prev, ...response.data]); // Combine with existing token holdings
+    } catch (err) {
+        console.error('Error fetching multichain data:', err);
+        setError('Error fetching data');
+    } finally {
+        setLoading(false);
+    }
 };
 const fetchAddressInfo = async (address: string) => {
   setLoading(true);
   setError(null);
   try {
-    // Fetch balance
-    const balanceResponse = await fetch(https://api.etherscan.io/api?module=account&action=balance&address=${address}&tag=latest&apikey=${ETHERSCAN_API_KEY});
-    const balanceData = await balanceResponse.json();
+      // Fetch balance
+      const balanceResponse = await fetch(`https://api.etherscan.io/api?module=account&action=balance&address=${address}&tag=latest&apikey=${ETHERSCAN_API_KEY}`);
+      const balanceData = await balanceResponse.json();
+      const balance = balanceData.result;
 
-    // Check if balance response is valid
-    if (balanceData.status !== "1") {
-      throw new Error(Failed to fetch balance: ${ balanceData.message });
-    }
+      // Fetch transactions
+      const transactionResponse = await fetch(`https://api.etherscan.io/api?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=asc&apikey=${ETHERSCAN_API_KEY}`);
+      const transactionData = await transactionResponse.json();
+      const transactions = transactionData.result;
 
-    const balance = balanceData.result;
+      // Fetch token transactions
+      const tokenResponse = await fetch(`https://api.etherscan.io/api?module=account&action=tokentx&address=${address}&startblock=0&endblock=999999 99999&sort=asc&apikey=${ETHERSCAN_API_KEY}`);
+      const tokenData = await tokenResponse.json();
+      const tokenTransactions = tokenData.result;
 
-    // Fetch transactions
-    const transactionResponse = await fetch(https://api.etherscan.io/api?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=asc&apikey=${ETHERSCAN_API_KEY});
-    const transactionData = await transactionResponse.json();
+      const totalSent = 0;
+      const fundedBy = 'N/A'; // Default value for funded by
 
-    // Check if transaction response is valid
-    if (transactionData.status !== "1") {
-      throw new Error(Failed to fetch transactions: ${ transactionData.message });
-    }
+    
 
-    const transactions: any[] = transactionData.result;
+      // Convert timestamps to human-readable format
+      const formatDate = (timestamp: string): string => {
+          const date = new Date(parseInt(timestamp) * 1000); // Convert seconds to milliseconds
+          return date.toLocaleString(); // Format date as string
+      };
 
-    // Fetch token transactions
-    const tokenResponse = await fetch(https://api.etherscan.io/api?module=account&action=tokentx&address=${address}&startblock=0&endblock=99999999&sort=asc&apikey=${ETHERSCAN_API_KEY});
-    const tokenData = await tokenResponse.json();
+      const firstSeen = transactions.length > 0 ? formatDate(transactions[0].timeStamp) : 'N/A';
+      const lastSeen = transactions.length > 0 ? formatDate(transactions[transactions.length - 1].timeStamp) : 'N/A';
 
-    // Log the tokenData to inspect its structure
-    console.log('Token Data:', tokenData);
+      // Calculate token holdings
+      const tokenHoldings: { [key: string]: { name: string; symbol: string; amount: number } } = {};
 
-    // Check if token response is valid
-    if (tokenData.status !== "1") {
-      throw new Error(Failed to fetch token transactions: ${ tokenData.message });
-    }
-
-    const tokenTransactions = tokenData.result;
-
-    // Ensure tokenTransactions is an array
-    if (!Array.isArray(tokenTransactions)) {
-      console.error('Expected tokenTransactions to be an array, but got:', tokenTransactions);
-      throw new Error("Unexpected token transactions data format");
-    }
-
-    let totalSent = 0;
-    let fundedBy = 'N/A'; // Default value for funded by
-
-    // Analyze transactions to find total sent and funded by address
-    transactions.forEach((tx: any) => {
-      if (tx.from.toLowerCase() === address.toLowerCase()) {
-        totalSent += parseFloat(tx.value); // Increment total sent
-      } else if (tx.to.toLowerCase() === address.toLowerCase()) {
-        // If this is the first received transaction, set fundedBy
-        if (fundedBy === 'N/A' && tx.from) {
-          fundedBy = tx.from; // Set the fundedBy address
-        }
-      }
-    });
-
-    // Convert total sent from Wei to Ether
-    const totalSentInETH = totalSent / 1e18; // Convert Wei to Ether
-
-    // Fetch ETH price in USD
-    const ethPriceResponse = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-    const ethPriceData = await ethPriceResponse.json();
-
-    // Check for errors in ETH price response
-    if (!ethPriceData.ethereum || !ethPriceData.ethereum.usd) {
-      throw new Error("Failed to fetch ETH price");
-    }
-
-    // Calculate token holdings
-    const tokenHoldings: { [key: string]: { name: string; symbol: string; amount: number } } = {};
-
-    tokenTransactions.forEach((tokenTx: any) => {
-      const tokenSymbol = tokenTx.tokenSymbol;
-      const tokenName = tokenTx.tokenName;
-      const value = parseFloat(tokenTx.value);
-
-      if (tokenTx.to.toLowerCase() === address.toLowerCase()) {
-        // Received tokens
-        if (!tokenHoldings[tokenSymbol]) {
-          tokenHoldings[tokenSymbol] = { name: tokenName, symbol: tokenSymbol, amount: 0 }; // Use amount
-        }
-        tokenHoldings[tokenSymbol].amount += value; // Update amount } else if (tokenTx.from.toLowerCase() === address.toLowerCase()) {
-        // Sent tokens
-        if (!tokenHoldings[tokenSymbol]) {
-          tokenHoldings[tokenSymbol] = { name: tokenName, symbol: tokenSymbol, amount: 0 }; // Use amount
-        }
-        tokenHoldings[tokenSymbol].amount -= value; // Update amount
-      }
-    });
-
-    const tokenHoldingsArray: TokenHolding[] = Object.values(tokenHoldings);
-    setTokenHoldings(tokenHoldingsArray);
-
-    // Calculate the value of the balance in USD
-    const ethValueInUSD = (parseFloat(balance) / 1e18) * ethPriceData.ethereum.usd; // Convert Wei to Ether and then to USD
-
-    // Set address info
-    setAddressInfo({
-      address,
-      gas: '0', // Placeholder
-      balance: (parseFloat(balance) / 1e18).toString(), // Convert Wei to Ether
-      totalSent: totalSentInETH.toString(), // Total sent in ETH
-      fundedBy,
-      firstSeen: transactions.length > 0 ? new Date(parseInt(transactions[0].timeStamp) * 1000).toLocaleString() : 'N/A',
-      lastSeen: transactions.length > 0 ? new Date(parseInt(transactions[transactions.length - 1].timeStamp) * 1000).toLocaleString() : 'N/A',
-      tokenHoldings: tokenHoldingsArray, // Set the calculated token holdings
-      value: ethValueInUSD.toString(), // Set the value in USD directly
-      privateNameTag: 'N/A', // Use user-defined tag
-      multichainInfo: 'N/A' // Placeholder for multichain info
-    });
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      console.error(Error fetching address info for ${ address }:, error);
-      setError(error.message);
+      if (Array.isArray(tokenTransactions)) {
+        tokenTransactions.forEach((tokenTx) => {
+            const tokenSymbol = tokenTx.tokenSymbol;
+            const tokenName = tokenTx.tokenName;
+            const value = parseFloat(tokenTx.value);
+    
+            if (tokenTx.to.toLowerCase() === address.toLowerCase()) {
+                // Received tokens
+                if (!tokenHoldings[tokenSymbol]) {
+                    tokenHoldings[tokenSymbol] = { name: tokenName, symbol: tokenSymbol, amount: 0 };
+                }
+                tokenHoldings[tokenSymbol].amount += value;
+            } else if (tokenTx.from.toLowerCase() === address.toLowerCase()) {
+                // Sent tokens
+                if (!tokenHoldings[tokenSymbol]) {
+                    tokenHoldings[tokenSymbol] = { name: tokenName, symbol: tokenSymbol, amount: 0 };
+                }
+                tokenHoldings[tokenSymbol].amount -= value;
+            }
+        });
     } else {
-      console.error(Unexpected error fetching address info for ${ address }:, error);
-      setError("An unexpected error occurred.");
+        console.error('tokenTransactions is not an array:', tokenTransactions);
     }
+
+      const tokenHoldingsArray: TokenHolding[] = Object.values(tokenHoldings);
+      setTokenHoldings(tokenHoldingsArray); 
+
+      setAddressInfo({
+          address,
+          gas: '0', // Placeholder
+          balance: (parseFloat(balance) / 1e18).toString(), // Convert Wei to Ether
+          totalSent: totalSent.toString(),
+          value: '0', // Placeholder for value in USD
+          firstSeen,
+          lastSeen,
+          fundedBy, // Set the fundedBy address
+          privateNameTag: 'N/A', // Use user-defined tag
+          multichainInfo: 'N/A', // Placeholder for multichain info
+          tokenHoldings: tokenHoldingsArray // Set the token holdings
+      });
+  } catch (error: unknown) {
+      if (error instanceof Error) {
+          console.error(`Error fetching address info for ${address}:`, error);
+          setError(error.message);
+      } else {
+          console.error(`Unexpected error fetching address info for ${address}:`, error);
+          setError("An unexpected error occurred.");
+      }
   } finally {
-    setLoading(false);
-  }
-};
-const handleFetch = () => {
-  if (address) {
-    fetchAddressInfo(address);
+      setLoading(false);
   }
 };
 
@@ -1068,3 +1024,4 @@ const onEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
     </Suspense>
   )
 }
+
