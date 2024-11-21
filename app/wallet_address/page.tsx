@@ -273,26 +273,26 @@ const ETHERSCAN_API_KEY = "RQ1E2Y5VTM4EKCNZTDHD58UCIXMPD34N1J";
     }
   }, [searchParams]);
 
- const fetchTokenHoldings = async (address: string, token: string) => {
-  setLoading(true);
-  setError(null);
-  try {
-    const response = await axios.get(https://api.bscscan.com/api?module=account&action=tokenbalance&contractaddress=${token}&address=${address}&tag=latest&apikey=5IE2SF8P8J318KF81WMA1XKWC1XI4IQGU6);
-      
-      const balance = response.data.result;
-    const tokenHoldingsData: TokenHolding[] = [{
-      name: "Token Name", // Placeholder for token name
-      symbol: "Token Symbol", // Placeholder for token symbol
-      amount: parseFloat(balance) / 1e18 // Adjust the divisor based on the token's decimals
-    }];
+const fetchTokenHoldings = async (address: string, token: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+        const response = await axios.get(`https://api.bscscan.com/api?module=account&action=tokenbalance&contractaddress=${token}&address=${address}&tag=latest&apikey=5IE2SF8P8J318KF81WMA1XKWC1XI4IQGU6`);
+        
+        const balance = response.data.result;
+        const tokenHoldingsData: TokenHolding[] = [{
+            name: "Token Name", // Placeholder for token name
+            symbol: "Token Symbol", // Placeholder for token symbol
+            amount: parseFloat(balance) / 1e18 // Adjust the divisor based on the token's decimals
+        }];
 
-    setTokenHoldings(tokenHoldingsData);
-  } catch (err) {
-    console.error('Error fetching token holdings:', err);
-    setError('Error fetching data');
-  } finally {
-    setLoading(false);
-  }
+        setTokenHoldings(tokenHoldingsData);
+    } catch (err) {
+        console.error('Error fetching token holdings:', err);
+        setError('Error fetching data');
+    } finally {
+        setLoading(false);
+    }
 };
 const fetchMultichainData = async () => {
   setLoading(true);
