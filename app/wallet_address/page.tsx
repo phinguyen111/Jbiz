@@ -405,159 +405,92 @@ const fetchTransactionData = async (address: string, updateSearched = false, par
   setError(null)
 
   try {
-    // Improved address validation
-    if (!address) {
-      throw new Error('Address is required')
-    }
+    const response = await fetch(`https://nhiapi.vercel.app/api/transactions?address=${address}`)
+    const data = await response.json()
 
-    // Remove '0x' prefix if present for validation
-    const cleanAddress = address.startsWith('0x') ? address.slice(2) : address
-    
-    // Strict hex address validation
-    if (!/^[0-9a-fA-F]{40}$/.test(cleanAddress)) {
-      throw new Error('Invalid Ethereum address format')
-    }
-
-    // Ensure address has 0x prefix for API call
-    const formattedAddress = `0x${cleanAddress}`
-
-    const fetchWithRetry = async (retries = 3) => {
-      for (let i = 0; i < retries; i++) {
-        try {
-          const response = await fetch(`https://apinhi.vercel.app/api/transactions?address=${address}`, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-              'Origin': 'https://jbiz.vercel.app'
-            },
-            mode: 'cors'
-          })
-
-          if (!response.ok) {
-            const errorText = await response.text()
-            throw new Error(`Server error (${response.status}): ${errorText}`)
-          }
-
-          const data = await response.json()
-          if (!data || !Array.isArray(data.transactions)) {
-            throw new Error('Invalid response format from server')
-          }
-
-          return data
-        } catch (error) {
-          console.error(`Attempt ${i + 1} failed:`, error)
-          if (i === retries - 1) throw error
-          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)))
-        }
+    if (data && data.transactions && Array.isArray(data.transactions)) {
+      if (processedAddresses.has(address.toLowerCase())) {
+        return
       }
-    }
 
-    const data = await fetchWithRetry()
-    
-    if (processedAddresses.has(formattedAddress.toLowerCase())) {
-      return
-    }
+      const newFromNodes: Node[] = []
+      const newToNodes: Node[] = []
+      const newEdges: Edge[] = []
+      const addedFromNodes = new Set(nodes.map((node) => node.id))
+      const addedToNodes = new Set(nodes.map((node) => node.id))
+      const edgeMap = new Map()
 
-    const newFromNodes: Node[] = []
-    const newToNodes: Node[] = []
-    const newEdges: Edge[] = []
-    const addedFromNodes = new Set(nodes.map((node) => node.id))
-    const addedToNodes = new Set(nodes.map((node) => node.id))
-    const edgeMap = new Map()
-
-    // Add center node for new search
-    if (!processedAddresses.size) {
-      const centerNode = {
-        id: formattedAddress.toLowerCase(),
-        type: 'star',
-        position: parentPosition,
-        data: { 
-          label: `${formattedAddress.slice(0, 6)}...${formattedAddress.slice(-4)}`,
-          address: formattedAddress
-        }
+      // Add center node for new search
+      if (!processedAddresses.size) {
+        newFromNodes.push({
+          id: address.toLowerCase(),
+          type: 'star',
+          position: parentPosition,
+          data: { label: `${address.slice(0, 6)}...${address.slice(-4)}` }
+        })
+        addedFromNodes.add(address.toLowerCase())
+        addedToNodes.add(address.toLowerCase())
       }
-      newFromNodes.push(centerNode)
-      addedFromNodes.add(formattedAddress.toLowerCase())
-      addedToNodes.add(formattedAddress.toLowerCase())
-    }
 
-    // Process transactions with improved validation
-    data.transactions.forEach((tx: any) => {
-      try {
-        if (!tx || typeof tx !== 'object') {
-          console.warn('Invalid transaction object:', tx)
-          return
+      // Process transactions with the correct data structure
+      data.transactions.forEach((tx: any) => {
+        if (!tx.from || !tx.to || !tx.value || !tx.hash) {
+          console.error("Invalid transaction data:", tx);
+          return; // Bỏ qua giao dịch nếu dữ liệu không hợp lệ
         }
-
-        const txFrom = tx.from?.toLowerCase()
-        const txTo = tx.to?.toLowerCase()
-        
-        if (!txFrom || !txTo || !/^0x[0-9a-fA-F]{40}$/i.test(txFrom) || !/^0x[0-9a-fA-F]{40}$/i.test(txTo)) {
-          console.warn('Invalid address in transaction:', { txFrom, txTo })
-          return
-        }
-
-        const value = tx.value ? parseFloat(tx.value) / 1e18 : 0
-        if (isNaN(value)) {
-          console.warn('Invalid transaction value:', tx.value)
-          return
-        }
-
+        // Extract the correct fields from the transaction
+        const txFrom = tx.from?.toLowerCase() || ''
+        const txTo = tx.to?.toLowerCase() || ''
+        const value = tx.value ? parseFloat(tx.value) / 1e18 : 0 // Convert from wei to ETH
         const edgeId = `${txFrom}-${txTo}`
 
-        // Add nodes with validation
+        // Skip invalid transactions
+        if (!txFrom || !txTo) return
+
         if (!addedFromNodes.has(txFrom) && txFrom !== txTo) {
-          const fromNode = {
+          newFromNodes.push({
             id: txFrom,
-            type: txFrom === formattedAddress.toLowerCase() ? "star" : "circle",
-            position: txFrom === formattedAddress.toLowerCase() ? parentPosition : { 
+            type: txFrom === address.toLowerCase() ? "star" : "circle",
+            position: txFrom === address.toLowerCase() ? parentPosition : { 
               x: parentPosition.x - 200 + Math.random() * 100, 
               y: parentPosition.y + Math.random() * 400 - 200
             },
             data: { 
               label: `${txFrom.slice(0, 6)}...${txFrom.slice(-4)}`,
-              address: txFrom,
               hash: tx.hash,
               blockNumber: tx.blockNumber
             }
-          }
-          newFromNodes.push(fromNode)
+          })
           addedFromNodes.add(txFrom)
         }
 
         if (!addedToNodes.has(txTo) && txFrom !== txTo) {
-          const toNode = {
+          newToNodes.push({
             id: txTo,
-            type: txTo === formattedAddress.toLowerCase() ? "star" : "circle",
-            position: txTo === formattedAddress.toLowerCase() ? parentPosition : { 
+            type: txTo === address.toLowerCase() ? "star" : "circle",
+            position: txTo === address.toLowerCase() ? parentPosition : { 
               x: parentPosition.x + 200 + Math.random() * 100, 
               y: parentPosition.y + Math.random() * 400 - 200
             },
             data: { 
               label: `${txTo.slice(0, 6)}...${txTo.slice(-4)}`,
-              address: txTo,
               hash: tx.hash,
               blockNumber: tx.blockNumber
             }
-          }
-          newToNodes.push(toNode)
+          })
           addedToNodes.add(txTo)
         }
 
-        // Update edge map with validation
         if (edgeMap.has(edgeId)) {
-          const existingEdge = edgeMap.get(edgeId)
-          existingEdge.totalAmount += value
-          existingEdge.transactions.push({
+          edgeMap.get(edgeId).totalAmount += value
+          edgeMap.get(edgeId).transactions.push({
             ...tx,
             amount: value,
-            timestamp: parseInt(tx.timeStamp) || Date.now() / 1000,
+            timestamp: parseInt(tx.timeStamp),
             hash: tx.hash,
             from: txFrom,
             to: txTo,
-            fee: tx.gasUsed && tx.gasPrice ? 
-              (parseInt(tx.gasUsed) * parseInt(tx.gasPrice) / 1e18).toFixed(8) : 
-              '0'
+            fee: (parseInt(tx.gasUsed) * parseInt(tx.gasPrice) / 1e18).toFixed(8)
           })
         } else {
           edgeMap.set(edgeId, {
@@ -567,24 +500,18 @@ const fetchTransactionData = async (address: string, updateSearched = false, par
             transactions: [{
               ...tx,
               amount: value,
-              timestamp: parseInt(tx.timeStamp) || Date.now() / 1000,
+              timestamp: parseInt(tx.timeStamp),
               hash: tx.hash,
               from: txFrom,
               to: txTo,
-              fee: tx.gasUsed && tx.gasPrice ? 
-                (parseInt(tx.gasUsed) * parseInt(tx.gasPrice) / 1e18).toFixed(8) : 
-                '0'
+              fee: (parseInt(tx.gasUsed) * parseInt(tx.gasPrice) / 1e18).toFixed(8)
             }]
           })
         }
-      } catch (txError) {
-        console.error('Error processing transaction:', txError, tx)
-      }
-    })
+      })
 
-    // Create edges with validation
-    edgeMap.forEach((edgeData, edgeId) => {
-      if (edgeData.source && edgeData.target && !isNaN(edgeData.totalAmount)) {
+      // Create edges from the map
+      edgeMap.forEach((edgeData, edgeId) => {
         newEdges.push({
           id: `e${edgeId}`,
           source: edgeData.source,
@@ -597,19 +524,17 @@ const fetchTransactionData = async (address: string, updateSearched = false, par
           markerEnd: { type: MarkerType.ArrowClosed },
           style: { stroke: '#60a5fa', strokeWidth: 3}
         })
-      }
-    })
+      })
+      setProcessedAddresses(prev => new Set([...prev, address.toLowerCase()]))
+      setNodes(prevNodes => [...prevNodes, ...newFromNodes, ...newToNodes])
+      setEdges(prevEdges => [...prevEdges, ...newEdges])
 
-    setProcessedAddresses(prev => new Set([...prev, formattedAddress.toLowerCase()]))
-    setNodes(prevNodes => [...prevNodes, ...newFromNodes, ...newToNodes])
-    setEdges(prevEdges => [...prevEdges, ...newEdges])
-    console.log(`Processed ${data.transactions.length} transactions for address: ${address}`)
-    
+      console.log(`Processed ${data.transactions.length} transactions for address: ${address}`)
+    } else {
+      setError("Failed to fetch transaction data or invalid data structure")
+    }
   } catch (err) {
-    console.error('Error fetching or processing data:', err)
-    setError(err instanceof Error ? err.message : 'An unexpected error occurred')
-    setNodes([])
-    setEdges([])
+    console.error('Error fetching data:', err)
   } finally {
     setIsLoading(false)
   }
@@ -620,7 +545,8 @@ const onNodeDoubleClick = useCallback((event: React.MouseEvent, node: Node) => {
     if (!processedAddresses.has(node.id)) {
       fetchTransactionData(node.id, false, node.position)
     }
-  }, [processedAddresses, fetchTransactionData])
+  }, [processedAddresses])
+
 
 const onEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
   const edgeTransactions = edge.data?.transactions || []
