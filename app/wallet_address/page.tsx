@@ -298,7 +298,7 @@ const fetchMultichainData = async () => {
     setLoading(true);
     setError(null);
     try {
-        const response = await axios.get(`https://deep-index.moralis.io/api/v2/${walletAddress}/erc20/${tokenAddress}`, {
+        const response = await axios.get(https://deep-index.moralis.io/api/v2/${walletAddress}/erc20/${tokenAddress}, {
             headers: {
                 'X-API-Key': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjdlYWZlZGFlLWQxYzktNGZiNS05OWJkLTRiNmU0ODMzMGM3YiIsIm9yZ0lkIjoiNDE2NTM4IiwidXNlcklkIjoiNDI4MTQ4IiwidHlwZSI6IlBST0pFQ1QiLCJ0eXBlSWQiOiI5MWE1M2YyZS00OGYxLTRiOTEtOTAyYy1kMTM3ZGFiOWQ0YTYiLCJpYXQiOjE3MzE4NzMzMDUsImV4cCI6NDg4NzYzMzMwNX0.eO0Dk38ZaLy-HgaUAYU-tou4ObTfdWQU9JBLMTQ_Dmo', 
             },
